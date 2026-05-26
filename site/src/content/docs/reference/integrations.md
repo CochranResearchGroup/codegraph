@@ -3,7 +3,7 @@ title: Integrations
 description: Supported agents, and manual MCP setup.
 ---
 
-The interactive installer auto-detects and configures each supported agent — wiring up the MCP server and writing its instructions file.
+The interactive installer auto-detects and configures each supported agent — wiring up the MCP server, writing its instructions file, and installing the shared `codegraph-workspace` skill for global installs.
 
 ## Supported agents
 
@@ -14,6 +14,8 @@ The interactive installer auto-detects and configures each supported agent — w
 - **Hermes Agent**
 
 Run `npx @colbymchenry/codegraph` and pick your agent(s); see [Installation](/codegraph/getting-started/installation/) for the non-interactive flags.
+
+After installing and indexing a project, run `codegraph doctor --target=<agent> --location=global` to verify the selected agent config, shared skill, MCP launch, and index health from the installed runtime.
 
 ## Manual setup
 
@@ -49,8 +51,10 @@ Optionally auto-allow the read-only tools in `~/.claude/settings.json`:
       "mcp__codegraph__codegraph_callees",
       "mcp__codegraph__codegraph_impact",
       "mcp__codegraph__codegraph_node",
+      "mcp__codegraph__codegraph_explore",
       "mcp__codegraph__codegraph_status",
-      "mcp__codegraph__codegraph_files"
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_trace"
     ]
   }
 }

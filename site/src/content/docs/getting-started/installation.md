@@ -15,14 +15,16 @@ The installer will:
 - Prompt to install `codegraph` on your `PATH` (so agents can launch the MCP server).
 - Ask whether configs apply to all your projects or just this one.
 - Write each chosen agent's MCP server config plus an instructions file (e.g. `CLAUDE.md`, `.cursor/rules/codegraph.mdc`, `~/.codex/AGENTS.md`).
+- Install the `codegraph-workspace` agent skill for global installs (`~/.agents/skills/codegraph-workspace`).
 - Set up auto-allow permissions when Claude Code is one of the targets.
 - Initialize your current project (local installs only).
 
 ## Non-interactive (scripting / CI)
 
 ```bash
-codegraph install --yes                              # auto-detect agents, install global
-codegraph install --target=cursor,claude --yes       # explicit target list
+codegraph install --target=codex --location=global --yes  # Codex CLI, non-interactive
+codegraph install --yes                                   # auto-detect agents, install global
+codegraph install --target=cursor,codex --yes             # explicit target list
 codegraph install --target=auto --location=local     # detected agents, project-local
 codegraph install --print-config codex               # print snippet, no file writes
 ```
@@ -48,6 +50,18 @@ codegraph init -i
 
 This builds the per-project knowledge graph index and wires up any project-local agent surfaces, so a single global `codegraph install` works in every project you open.
 
+## 4. Verify install health
+
+```bash
+codegraph doctor --target=codex --location=global
+```
+
+`doctor` checks the runtime, bundled product assets, installed skill, selected agent config, index freshness, and a real MCP `codegraph_status` smoke. Use `--json` for release validation or CI.
+
+Global installs also place the `codegraph-workspace` skill in your user skill root. Skill-aware agents use it to check `codegraph_status`, sync stale indexes, prefer structural graph tools over grep/read, and report skipped or oversized files.
+
+If a source file is above CodeGraph's size limit, the index records it as a skipped file instead of leaving the project permanently stale. `codegraph status` and `codegraph_status` show the skipped-file caveat while still reporting the index as up to date when everything else is current.
+
 ## Supported platforms
 
 Every release ships a self-contained build (bundled Node runtime — nothing to compile) for all three desktop OSes, on both x64 and arm64:
@@ -66,4 +80,4 @@ Changed your mind? One command removes CodeGraph from every agent it configured:
 codegraph uninstall
 ```
 
-This reverses the installer — stripping CodeGraph's MCP server config, instructions, and permissions from each configured agent. Your project indexes (`.codegraph/`) are left untouched; remove those per-project with `codegraph uninit`. Use `--target` to remove from specific agents, or `--yes` to run non-interactively.
+This reverses the installer — stripping CodeGraph's MCP server config, instructions, and permissions from configured agents. A global uninstall also removes the user-level `codegraph-workspace` skill. Your project indexes (`.codegraph/`) are left untouched; remove those per-project with `codegraph uninit`. Use `--target` to remove from specific agents, or `--yes` to run non-interactively.

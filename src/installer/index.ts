@@ -23,6 +23,8 @@ import {
 } from './targets/registry';
 import type { AgentTarget, Location, TargetId, WriteResult } from './targets/types';
 import { getGlyphs } from '../ui/glyphs';
+import { resolveMcpLaunchConfig } from './mcp-launch';
+import { installCodeGraphSkill, uninstallCodeGraphSkill } from './skills';
 // Import the lightweight submodules directly (not the ../sync barrel, which
 // re-exports FileWatcher and would transitively pull in ../extraction — the
 // installer must stay importable even when native modules can't load).
@@ -103,6 +105,7 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
     clack.outro('No agent targets selected — nothing to do.');
     return;
   }
+  const mcpLaunchConfig = resolveMcpLaunchConfig();
 
   // Step 2: install the codegraph npm package on PATH (always offered;
   // matches existing behavior). Skipped when --yes (assume present).
@@ -190,7 +193,7 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
       );
       continue;
     }
-    const result = target.install(location, { autoAllow });
+    const result = target.install(location, { autoAllow, mcpLaunchConfig });
     for (const file of result.files) {
       const verb = file.action === 'unchanged'
         ? 'Unchanged'
@@ -199,6 +202,19 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
     }
     for (const note of result.notes ?? []) {
       clack.log.info(`${target.displayName}: ${note}`);
+    }
+  }
+
+  if (location === 'global') {
+    try {
+      const skill = installCodeGraphSkill();
+      const verb = skill.action === 'unchanged'
+        ? 'Unchanged'
+        : skill.action === 'created' ? 'Created' : 'Updated';
+      clack.log.success(`Agent Skills: ${verb} ${tildify(skill.path)}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      clack.log.warn(`Agent Skills: skipped — ${msg}`);
     }
   }
 
@@ -347,6 +363,7 @@ export async function runUninstaller(opts: RunUninstallerOptions): Promise<void>
   // Step 3: sweep + per-agent feedback.
   const reports = uninstallTargets(targets, location);
   const removed = reports.filter((r) => r.status === 'removed');
+  let skillRemoved = false;
 
   for (const r of reports) {
     if (r.status === 'removed') {
@@ -360,6 +377,16 @@ export async function runUninstaller(opts: RunUninstallerOptions): Promise<void>
     }
   }
 
+  if (location === 'global') {
+    const skill = uninstallCodeGraphSkill();
+    if (skill.action === 'removed') {
+      skillRemoved = true;
+      clack.log.success(`Agent Skills: removed ${tildify(skill.path)}`);
+    } else {
+      clack.log.info('Agent Skills: not installed — nothing to remove');
+    }
+  }
+
   // Step 4: for local uninstall, the index dir is separate — point at
   // `uninit` so the user knows it's still there (and how to remove it).
   if (location === 'local' && fs.existsSync(path.join(process.cwd(), '.codegraph'))) {
@@ -367,11 +394,13 @@ export async function runUninstaller(opts: RunUninstallerOptions): Promise<void>
   }
 
   // Step 5: summary.
-  if (removed.length > 0) {
+  if (removed.length > 0 || skillRemoved) {
     const names = removed.map((r) => r.displayName).join(', ');
+    const detail = names
+      ? `${names}${skillRemoved ? ', Agent Skills' : ''}`
+      : 'Agent Skills';
     clack.outro(
-      `Removed CodeGraph from ${removed.length} agent${removed.length > 1 ? 's' : ''}: ${names}. ` +
-      `Restart ${removed.length > 1 ? 'them' : 'it'} to apply.`,
+      `Removed CodeGraph from ${detail}. Restart configured agents to apply.`,
     );
   } else {
     clack.outro(`CodeGraph was not configured in any ${location} agent — nothing to remove.`);

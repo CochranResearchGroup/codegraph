@@ -16,8 +16,10 @@ import * as path from 'path';
  * all JSON-shaped agent configs (Claude, Cursor, opencode), only the
  * surrounding wrapper differs. Codex (TOML) builds its own block.
  */
-export function getMcpServerConfig(): { type: string; command: string; args: string[] } {
-  return {
+export function getMcpServerConfig(
+  override?: { type: 'stdio'; command: string; args: string[] },
+): { type: string; command: string; args: string[] } {
+  return override ?? {
     type: 'stdio',
     command: 'codegraph',
     args: ['serve', '--mcp'],
@@ -37,7 +39,10 @@ export function getCodeGraphPermissions(): string[] {
     'mcp__codegraph__codegraph_callees',
     'mcp__codegraph__codegraph_impact',
     'mcp__codegraph__codegraph_node',
+    'mcp__codegraph__codegraph_explore',
     'mcp__codegraph__codegraph_status',
+    'mcp__codegraph__codegraph_files',
+    'mcp__codegraph__codegraph_trace',
   ];
 }
 

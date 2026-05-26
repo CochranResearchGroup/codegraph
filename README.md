@@ -2,7 +2,7 @@
 
 # CodeGraph
 
-### Supercharge Claude Code, Cursor, Codex, OpenCode, and Hermes Agent with Semantic Code Intelligence
+### Supercharge Codex CLI, Claude Code, Cursor, OpenCode, and Hermes Agent with Semantic Code Intelligence
 
 **~35% cheaper · ~70% fewer tool calls · 100% local**
 
@@ -66,13 +66,13 @@ Changed your mind? One command removes CodeGraph from every agent it configured:
 codegraph uninstall
 ```
 
-<sub>Reverses the installer — strips CodeGraph's MCP server config, instructions, and permissions from each configured agent. Your project indexes (`.codegraph/`) are left untouched; remove those per-project with `codegraph uninit`. Use `--target` to remove from specific agents, or `--yes` to run non-interactively.</sub>
+<sub>Reverses the installer — strips CodeGraph's MCP server config, instructions, and permissions from configured agents. A global uninstall also removes the user-level `codegraph-workspace` skill. Your project indexes (`.codegraph/`) are left untouched; remove those per-project with `codegraph uninit`. Use `--target` to remove from specific agents, or `--yes` to run non-interactively.</sub>
 
 ---
 
 ## Why CodeGraph?
 
-When Claude Code explores a codebase, it spawns **Explore agents** that scan files with grep, glob, and Read — consuming tokens on every tool call.
+When an AI coding agent explores a codebase, it often scans files with grep, glob, and Read — and some hosts spawn file-reading exploration sub-agents that multiply those calls.
 
 **CodeGraph gives those agents a pre-indexed knowledge graph** — symbol relationships, call graphs, and code structure. Agents query the graph instantly instead of scanning files.
 
@@ -121,7 +121,7 @@ The gains scale with codebase size: on large repos the agent answers from the in
 | Gin | $0.37 → $0.47 | 444k → 675k | 44s → 1m 0s | 6 → 10 |
 | Alamofire | $0.61 → $1.14 | 1.0M → 2.8M | 1m 17s → 2m 27s | 12 → 69 |
 
-**Why CodeGraph wins:** with the index available, the agent answers directly — `codegraph_context` to map the area, then one `codegraph_explore` for the relevant source — and stops, usually with zero file reads. Without it, the agent (and the Explore sub-agents it spawns) spends most of its budget on discovery (find/ls/grep) before reading the right code. CodeGraph only helps when queried *directly*, so its instructions steer agents to answer directly rather than delegate exploration to file-reading sub-agents — otherwise a sub-agent reads files regardless and CodeGraph becomes overhead.
+**Why CodeGraph wins:** with the index available, the agent answers directly — `codegraph_context` to map the area, then one `codegraph_explore` for the relevant source — and stops, usually with zero file reads. Without it, the agent spends most of its budget on discovery (find/ls/grep) before reading the right code, and any file-reading sub-agents amplify that cost. CodeGraph only helps when queried *directly*, so its instructions steer agents to answer directly rather than delegate exploration to file-reading sub-agents — otherwise a sub-agent reads files regardless and CodeGraph becomes overhead.
 
 </details>
 
@@ -207,14 +207,16 @@ The installer will:
 - Prompt to install `codegraph` on your PATH (so agents can launch the MCP server)
 - Ask whether configs apply to all your projects or just this one
 - Write each chosen agent's MCP server config + an instructions file (e.g. `CLAUDE.md`, `.cursor/rules/codegraph.mdc`, `~/.codex/AGENTS.md`)
+- Install the `codegraph-workspace` agent skill for global installs (`~/.agents/skills/codegraph-workspace`)
 - Set up auto-allow permissions when Claude Code is one of the targets
 - Initialize your current project (local installs only)
 
 **Non-interactive (scripting / CI):**
 
 ```bash
-codegraph install --yes                              # auto-detect agents, install global
-codegraph install --target=cursor,claude --yes       # explicit target list
+codegraph install --target=codex --location=global --yes  # Codex CLI, non-interactive
+codegraph install --yes                                   # auto-detect agents, install global
+codegraph install --target=cursor,codex --yes             # explicit target list
 codegraph install --target=auto --location=local     # detected agents, project-local
 codegraph install --print-config codex               # print snippet, no file writes
 ```
@@ -241,6 +243,26 @@ codegraph init -i
 Builds the per-project knowledge graph index. Also wires up any project-local agent surfaces (e.g. Cursor's `.cursor/rules/codegraph.mdc`) so a single global `codegraph install` works in every project you open — no need to re-run the installer per project.
 
 That's it — your agent will use CodeGraph tools automatically when a `.codegraph/` directory exists.
+
+### 4. Verify Install Health
+
+```bash
+codegraph doctor --target=codex --location=global
+```
+
+`doctor` checks the runtime, bundled product assets, installed skill, selected
+agent config, index freshness, and a real MCP `codegraph_status` smoke. Use
+`--json` for release validation or CI.
+
+Global installs also place the `codegraph-workspace` skill in your user skill
+root. Skill-aware agents use it as the reusable workflow for checking
+`codegraph_status`, syncing stale indexes, preferring structural graph tools
+over grep/read, and reporting skipped or oversized files.
+
+If a source file is above CodeGraph's size limit, the index records it as a
+skipped file instead of leaving the project permanently stale. `codegraph status`
+and `codegraph_status` show the skipped-file caveat while still reporting the
+index as up to date when everything else is current.
 
 <details>
 <summary><strong>Manual Setup (Alternative)</strong></summary>
@@ -274,8 +296,10 @@ npm install -g @colbymchenry/codegraph
       "mcp__codegraph__codegraph_callees",
       "mcp__codegraph__codegraph_impact",
       "mcp__codegraph__codegraph_node",
+      "mcp__codegraph__codegraph_explore",
       "mcp__codegraph__codegraph_status",
-      "mcp__codegraph__codegraph_files"
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_trace"
     ]
   }
 }
@@ -366,6 +390,7 @@ codegraph uninit [path]           # Remove CodeGraph from a project (--force to 
 codegraph index [path]            # Full index (--force to re-index, --quiet for less output)
 codegraph sync [path]             # Incremental update
 codegraph status [path]           # Show statistics
+codegraph doctor [path]           # Check runtime, MCP, skill, agent config, and index health
 codegraph query <search>          # Search symbols (--kind, --limit, --json)
 codegraph files [path]            # Show file structure (--format, --filter, --max-depth, --json)
 codegraph context <task>          # Build context for AI (--format, --max-nodes)
@@ -408,7 +433,7 @@ fi
 
 ## MCP Tools
 
-When running as an MCP server, CodeGraph exposes these tools to Claude Code:
+When running as an MCP server, CodeGraph exposes these tools to AI coding agents:
 
 | Tool | Purpose |
 |------|---------|
@@ -487,7 +512,8 @@ See [Get Started](#get-started) for the one-line install commands.
 ## Supported Agents
 
 The interactive installer auto-detects and configures each of these — wiring up
-the MCP server and writing its instructions file:
+the MCP server, writing its instructions file, and installing the shared
+`codegraph-workspace` skill for global installs:
 
 - **Claude Code**
 - **Cursor**
@@ -535,7 +561,13 @@ the MCP server and writing its instructions file:
 
 **MCP server not connecting** — Ensure the project is initialized/indexed, verify the path in your MCP config, and check that `codegraph serve --mcp` works from the command line.
 
+**Agent config exists but tools do not appear** — Restart the agent after `codegraph install`. Then run `codegraph doctor --target=<agent> --location=global` to verify the selected config, skill, MCP launch, and index.
+
 **Missing symbols** — The MCP server auto-syncs on save (wait a couple seconds). Run `codegraph sync` manually if needed. Check that the file's language is supported and isn't inside a `.gitignore`d or default-excluded directory (e.g. `node_modules`, `dist`).
+
+**Skipped files** — `codegraph status` and `codegraph_status` list files skipped intentionally, such as source files above the size limit. The index can still be up to date; inspect or split the skipped file only if your task depends on it.
+
+**Node/runtime mismatch** — Standalone installs and generated npm packages run the bundled runtime. Source checkouts require Node.js `>=22.5.0 <25.0.0`; run `codegraph doctor` to see which runtime is active.
 
 ## Star History
 

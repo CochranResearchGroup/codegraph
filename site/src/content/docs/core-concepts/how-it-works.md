@@ -21,7 +21,7 @@ files → Extraction (tree-sitter) → DB (nodes/edges/files)
 
 ## 2. Storage
 
-Everything goes into a local SQLite database (`.codegraph/codegraph.db`) with FTS5 full-text search. CodeGraph uses native `better-sqlite3` when available and transparently falls back to a WASM backend; `codegraph status` shows which is live.
+Everything goes into a local SQLite database (`.codegraph/codegraph.db`) with FTS5 full-text search. Current builds use Node's built-in `node:sqlite` with WAL support; `codegraph status` shows the active backend.
 
 ## 3. Resolution
 

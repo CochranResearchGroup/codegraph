@@ -39,6 +39,7 @@ import {
 } from './types';
 import {
   atomicWriteFileSync,
+  getMcpServerConfig,
   jsonDeepEqual,
   removeMarkedSection,
   replaceOrAppendMarkedSection,
@@ -96,10 +97,13 @@ function parseConfig(text: string): Record<string, any> {
   return result as Record<string, any>;
 }
 
-function getOpencodeServerEntry(): { type: string; command: string[]; enabled: boolean } {
+function getOpencodeServerEntry(
+  mcpLaunchConfig?: InstallOptions['mcpLaunchConfig'],
+): { type: string; command: string[]; enabled: boolean } {
+  const mcp = getMcpServerConfig(mcpLaunchConfig);
   return {
     type: 'local',
-    command: ['codegraph', 'serve', '--mcp'],
+    command: [mcp.command, ...mcp.args],
     enabled: true,
   };
 }
@@ -125,9 +129,9 @@ class OpencodeTarget implements AgentTarget {
     return { installed, alreadyConfigured, configPath: file };
   }
 
-  install(loc: Location, _opts: InstallOptions): WriteResult {
+  install(loc: Location, opts: InstallOptions): WriteResult {
     const files: WriteResult['files'] = [];
-    files.push(writeMcpEntry(loc));
+    files.push(writeMcpEntry(loc, opts.mcpLaunchConfig));
     files.push(writeInstructionsEntry(loc));
     return { files };
   }
@@ -184,7 +188,10 @@ class OpencodeTarget implements AgentTarget {
   }
 }
 
-function writeMcpEntry(loc: Location): WriteResult['files'][number] {
+function writeMcpEntry(
+  loc: Location,
+  mcpLaunchConfig?: InstallOptions['mcpLaunchConfig'],
+): WriteResult['files'][number] {
   const file = configPath(loc);
   const existed = fs.existsSync(file);
   let text = readConfigText(file);
@@ -198,7 +205,7 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
 
   const config = parseConfig(text);
   const before = config.mcp?.codegraph;
-  const after = getOpencodeServerEntry();
+  const after = getOpencodeServerEntry(mcpLaunchConfig);
 
   if (jsonDeepEqual(before, after)) {
     return { path: file, action: 'unchanged' };

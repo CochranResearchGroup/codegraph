@@ -9,6 +9,67 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Global installs now ship an agent skill for CodeGraph-aware work.**
+  `codegraph install --location=global` installs the `codegraph-workspace`
+  skill into the user skill root so skill-aware agents get a reusable workflow
+  for checking index health, syncing stale graphs, using structural tools before
+  grep/read, and reporting skipped files.
+- **Product artifact checks now verify the skill ships with built output.**
+  The build copies `codegraph-workspace` into `dist/skills/`, and CI verifies
+  the schema, WASM grammars, and skill payload before release.
+- **`codegraph doctor` verifies deployed install health.** The command checks
+  runtime/package origin, bundled assets, installed skill metadata, selected
+  agent config, index freshness, and a real MCP `codegraph_status` launch smoke;
+  `--json` gives release validation a deterministic result.
+- **Release artifact checks now inspect generated bundles and npm packages.**
+  The release workflow fails before publish if platform archives or generated
+  platform npm packages are missing schema, WASM, or `codegraph-workspace`
+  payload files.
+- **Standalone installers can validate alternate release mirrors.**
+  `install.sh` and `install.ps1` now honor `CODEGRAPH_DOWNLOAD_BASE`, allowing
+  release-candidate and private-mirror validation against the same archive
+  layout used by GitHub Releases.
+- **Codex install smoke coverage now verifies durable MCP launch commands.**
+  Non-interactive Codex installs can be tested from built `dist/`, from a
+  simulated `npx` invocation, and across idempotent re-runs without touching a
+  user's real `~/.codex` config.
+- **CI now runs install, build, tests, and the root-package publish guard** so
+  installer and packaging regressions get caught before release.
+
+### Changed
+- **Source installs now require Node.js `>=22.5.0 <25.0.0`.** This matches the
+  real `node:sqlite` floor used by source execution while keeping the existing
+  Node 25 crash-prevention block.
+- **The default test command runs the heavy extraction suite in bounded
+  batches.** This avoids V8 WebAssembly Zone OOMs while still executing every
+  extraction test.
+
+### Fixed
+- **Oversized source files no longer leave an index permanently stale.**
+  Files above CodeGraph's source-size limit are now tracked as intentionally
+  skipped with a warning, so `codegraph status` can report the index up to date
+  while still showing the skipped-file caveat.
+- **Codex MCP configs no longer depend on a short-lived installer process.**
+  The installer resolves a durable MCP launch command for PATH installs, source
+  installs, and `npx @colbymchenry/codegraph` installs.
+- **Standalone installers are safer before extraction or uninstall.**
+  `install.sh` and `install.ps1` verify release archives against `SHA256SUMS`
+  when available, and refuse unsafe install directories such as `/` or the
+  user's home directory during uninstall.
+- **The PowerShell installer no longer collides with PowerShell's read-only
+  `$HOME` variable.** Real PowerShell execution caught the case-insensitive
+  `$home` local variable collision before release.
+- **Root-package publish and pack commands now fail intentionally unless
+  explicitly overridden.** Release publishing must use the generated
+  release-package flow, not the source repository root.
+
+### Security
+- **Production installs no longer include vulnerable `picomatch` releases.**
+  The runtime dependency now resolves to `picomatch` 4.0.4, and
+  `npm audit --omit=dev` reports zero production vulnerabilities for the
+  release payload.
+
 ## [0.9.5] - 2026-05-25
 
 ### Added
@@ -441,6 +502,7 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   find its bundle. The release pipeline now verifies every package reached the
   registry (and is idempotent), so a release can't pass green-but-broken again.
 
+[Unreleased]: https://github.com/colbymchenry/codegraph/compare/v0.9.5...HEAD
 [0.9.5]: https://github.com/colbymchenry/codegraph/releases/tag/v0.9.5
 [0.9.4]: https://github.com/colbymchenry/codegraph/releases/tag/v0.9.4
 [0.9.3]: https://github.com/colbymchenry/codegraph/releases/tag/v0.9.3

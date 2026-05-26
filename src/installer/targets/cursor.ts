@@ -107,10 +107,10 @@ class CursorTarget implements AgentTarget {
     return { installed, alreadyConfigured, configPath: mcpPath };
   }
 
-  install(loc: Location, _opts: InstallOptions): WriteResult {
+  install(loc: Location, opts: InstallOptions): WriteResult {
     const files: WriteResult['files'] = [];
 
-    files.push(writeMcpEntry(loc));
+    files.push(writeMcpEntry(loc, opts.mcpLaunchConfig));
 
     if (loc === 'local') {
       files.push(writeRulesEntry());
@@ -175,17 +175,23 @@ class CursorTarget implements AgentTarget {
  * correctly regardless of Cursor's launch cwd. See file header for
  * the full rationale.
  */
-function buildCursorMcpConfig(loc: Location): { type: string; command: string; args: string[] } {
-  const base = getMcpServerConfig();
+function buildCursorMcpConfig(
+  loc: Location,
+  mcpLaunchConfig?: InstallOptions['mcpLaunchConfig'],
+): { type: string; command: string; args: string[] } {
+  const base = getMcpServerConfig(mcpLaunchConfig);
   const pathArg = loc === 'local' ? process.cwd() : '${workspaceFolder}';
   return { ...base, args: [...base.args, '--path', pathArg] };
 }
 
-function writeMcpEntry(loc: Location): WriteResult['files'][number] {
+function writeMcpEntry(
+  loc: Location,
+  mcpLaunchConfig?: InstallOptions['mcpLaunchConfig'],
+): WriteResult['files'][number] {
   const file = mcpJsonPath(loc);
   const existing = readJsonFile(file);
   const before = existing.mcpServers?.codegraph;
-  const after = buildCursorMcpConfig(loc);
+  const after = buildCursorMcpConfig(loc, mcpLaunchConfig);
 
   if (jsonDeepEqual(before, after)) {
     return { path: file, action: 'unchanged' };
