@@ -50,6 +50,7 @@ Use codegraph for **structural** questions — what calls what, what would break
 - **Don't chain \`codegraph_search\` + \`codegraph_node\`** when you just want context — \`codegraph_context\` is one call.
 - **Don't loop \`codegraph_node\` over many symbols** — one \`codegraph_explore\` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
 - **Index lag — check the staleness banner, don't guess a wait.** When a codegraph response starts with "⚠️ Some files referenced below were edited since the last index sync…", the listed files are pending re-index — Read those specific files for accurate content. Files NOT in that banner are fresh and codegraph is authoritative for them. \`codegraph_status\` also lists pending files under "Pending sync".
+- **Skipped oversized files are intentional.** CodeGraph skips individual source files above 1 MiB by default. If a skipped file is hand-authored source required for the task, raise the cap before indexing/MCP startup with \`CODEGRAPH_MAX_FILE_SIZE_BYTES=<bytes>\`, run \`codegraph sync <repo>\`, then re-check status. Do not raise it for generated bundles or vendored blobs.
 
 ### If \`.codegraph/\` doesn't exist
 

@@ -64,6 +64,7 @@ of calls; a grep/read exploration is dozens.
 ## Limitations
 
 - Index lags file writes by ~1 second.
+- Source files above 1 MiB are skipped by default to avoid generated bundles and vendored blobs. If a skipped file is hand-authored source required for the task, raise the cap before indexing/MCP startup with \`CODEGRAPH_MAX_FILE_SIZE_BYTES=<bytes>\`, run \`codegraph sync <repo>\`, then re-check status.
 - Cross-file resolution is best-effort name matching; ambiguous calls may return multiple candidates.
 - No live correctness validation — that's still the TypeScript compiler / test suite / linter's job. Codegraph supplements those with structural context they don't have.
 `;

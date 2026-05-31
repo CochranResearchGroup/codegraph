@@ -92,7 +92,7 @@ Tested across **7 real-world open-source codebases** spanning 7 languages, compa
 | **Gin** | Go · ~110 | 21% cheaper | 34% fewer | 27% faster | 40% fewer |
 | **Alamofire** | Swift · ~110 | 47% cheaper | 64% fewer | 48% faster | 83% fewer |
 
-The gains scale with codebase size: on large repos the agent answers from the index in a handful of calls with **zero file reads**, while the no-CodeGraph agent fans out across grep/find/Read (and the sub-agents it spawns). On a small repo like Gin (~150 files) native search is already cheap, so the margin narrows.
+The gains scale with codebase size: on large repos the agent answers from the index in a handful of calls with **zero file reads**, while the no-CodeGraph agent fans out across grep/find/Read (and the sub-agents it spawns). On a small repo like Gin (~150 files) native search is already cheap, so the margin narrows. CodeGraph skips individual source files above 1 MiB by default to avoid generated or vendored blobs; for rare hand-authored files that should be indexed, raise the cap with `CODEGRAPH_MAX_FILE_SIZE_BYTES=<bytes>` before running `codegraph index`, `codegraph sync`, or the MCP server.
 
 <details>
 <summary><strong>Full benchmark details</strong></summary>
@@ -259,10 +259,14 @@ root. Skill-aware agents use it as the reusable workflow for checking
 `codegraph_status`, syncing stale indexes, preferring structural graph tools
 over grep/read, and reporting skipped or oversized files.
 
-If a source file is above CodeGraph's size limit, the index records it as a
-skipped file instead of leaving the project permanently stale. `codegraph status`
-and `codegraph_status` show the skipped-file caveat while still reporting the
-index as up to date when everything else is current.
+If a source file is above CodeGraph's 1 MiB size limit, the index records it as
+a skipped file instead of leaving the project permanently stale. `codegraph
+status` and `codegraph_status` show the skipped-file caveat while still
+reporting the index as up to date when everything else is current. For a rare
+large, hand-authored source file that should be parsed, raise the cap for the
+indexing process, for example `CODEGRAPH_MAX_FILE_SIZE_BYTES=2097152 codegraph
+sync /path/to/repo`, then restart the MCP server or agent if it was already
+running with the old environment.
 
 <details>
 <summary><strong>Manual Setup (Alternative)</strong></summary>
@@ -565,7 +569,7 @@ the MCP server, writing its instructions file, and installing the shared
 
 **Missing symbols** — The MCP server auto-syncs on save (wait a couple seconds). Run `codegraph sync` manually if needed. Check that the file's language is supported and isn't inside a `.gitignore`d or default-excluded directory (e.g. `node_modules`, `dist`).
 
-**Skipped files** — `codegraph status` and `codegraph_status` list files skipped intentionally, such as source files above the size limit. The index can still be up to date; inspect or split the skipped file only if your task depends on it.
+**Skipped files** — `codegraph status` and `codegraph_status` list files skipped intentionally, such as source files above the 1 MiB size limit. The index can still be up to date; inspect or split the skipped file only if your task depends on it. If the skipped file is hand-authored source that must be indexed, raise the cap with `CODEGRAPH_MAX_FILE_SIZE_BYTES=<bytes>` before running `codegraph sync` or starting the MCP server; avoid using this for generated bundles or vendored blobs.
 
 **Node/runtime mismatch** — Standalone installs and generated npm packages run the bundled runtime. Source checkouts require Node.js `>=22.5.0 <25.0.0`; run `codegraph doctor` to see which runtime is active.
 
